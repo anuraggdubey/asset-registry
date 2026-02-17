@@ -1,125 +1,107 @@
-import { server } from "./server";
-import { getCachedOwnership, setCachedOwnership } from "../cache/ownershipCache";
+import { getOnChainOwner } from "./ownership";
+import axios from "axios";
+import { StrKey } from "@stellar/stellar-sdk";
 
-export async function verifyOwnership(hash: string, skipCache = false) {
+export interface OwnershipVerificationResult {
+    registry: {
+        id: string;
+        metadataHash: string;
+        cachedOwner: string;
+        ownerName: string;
+        status: string;
+        lastVerified: number;
+        code: string;
+        issuer: string;
+    } | null;
+    live: {
+        owner: string | null;
+        issuer: string;
+        isVerified: boolean;
+    };
+    error?: string;
+}
 
-    // Ensure we are working with the 20-byte fingerprint
-    const hash20 = hash.length > 20 ? hash.slice(0, 20) : hash;
+export async function verifyOwnership(identifier: string): Promise<OwnershipVerificationResult> {
+    try {
+        let registryData = null;
+        let issuerPublicKey = "";
+        let assetCode = "ART"; // Default
 
-    // cache
-    if (!skipCache) {
-        const cached = getCachedOwnership(hash20);
-        if (cached) {
+        // Detect Identifier Type
+        const isRegistryId = /^\d{6}$/.test(identifier);
+        const isStellarKey = StrKey.isValidEd25519PublicKey(identifier);
+        // Assume anything else might be a Hash if it's not a key and not an ID
+        const isHash = !isRegistryId && !isStellarKey;
+
+        if (isRegistryId) {
+            // 1. Fetch by ID
+            try {
+                const res = await axios.get(`/api/registry/asset?id=${identifier}`);
+                registryData = res.data;
+                issuerPublicKey = registryData.issuerPublicKey;
+                assetCode = registryData.assetCode;
+            } catch (e) {
+                console.warn("Registry Lookup Failed (ID)", e);
+            }
+        } else if (isHash) {
+            // 1. Fetch by Hash
+            try {
+                const res = await axios.get(`/api/registry/asset?hash=${identifier}`);
+                registryData = res.data;
+                issuerPublicKey = registryData.issuerPublicKey;
+                assetCode = registryData.assetCode;
+            } catch (e) {
+                console.warn("Registry Lookup Failed (Hash)", e);
+            }
+        }
+
+        if (!isRegistryId && !isHash && isStellarKey) {
+            // Identifier IS the issuer
+            issuerPublicKey = identifier;
+        }
+
+        // If we still don't have an issuer (e.g. Hash lookup failed), we can't verify on-chain.
+        if (!issuerPublicKey || !StrKey.isValidEd25519PublicKey(issuerPublicKey)) {
             return {
-                owner: cached.owner,
-                txHash: cached.txHash,
-                cached: true
+                registry: null,
+                live: { owner: null, issuer: "", isVerified: false },
+                error: "Could not resolve valid Asset Issuer from identifiers."
             };
         }
-    }
 
-    // History collection
-    const history: Array<{
-        owner: string;
-        txHash: string;
-        timestamp: string; // approximate based on ledger close or just "Unknown" if not fetched
-        type: "REGISTER" | "TRANSFER";
-    }> = [];
+        // 2. Fetch Real On-Chain Owner (Source of Truth)
+        const onChainOwner = await getOnChainOwner(assetCode, issuerPublicKey);
 
-    // Increase depth to 20 pages for better reliability on testnet
-    for (let i = 0; i < 20; i++) {
+        // 3. Determine Verification Status
+        const isVerified = registryData ? (onChainOwner === registryData.currentKnownOwner) : false;
 
-        const callBuilder = server.transactions().order("desc").limit(200);
-
-        if (cursor) {
-            callBuilder.cursor(cursor);
-        }
-
-        const page = await callBuilder.call();
-
-        if (page.records.length === 0) break;
-
-        for (const tx of page.records) {
-
-            if (!tx.memo || typeof tx.memo !== "string") continue;
-
-            const isReg = tx.memo === `REG|${hash20}`;
-            const isTransfer = tx.memo === `OWN|${hash20}`;
-
-            if (isReg) {
-                const recordOwner = tx.source_account;
-
-                // Add to history
-                history.push({
-                    owner: recordOwner,
-                    txHash: tx.hash,
-                    timestamp: tx.created_at,
-                    type: "REGISTER"
-                });
-
-                // If this is the first (latest) relevant event we found, it's the current owner
-                if (!foundTx) {
-                    owner = recordOwner;
-                    foundTx = tx.hash;
-                }
+        // 4. Return Hybrid Data
+        return {
+            registry: registryData ? {
+                id: registryData.registeredAssetId,
+                metadataHash: registryData.metadataHash,
+                cachedOwner: registryData.currentKnownOwner,
+                ownerName: registryData.ownerProfile?.displayName || "Anonymous",
+                status: registryData.status,
+                lastVerified: registryData.lastVerifiedLedger,
+                code: registryData.assetCode,
+                issuer: registryData.issuerPublicKey
+            } : null,
+            live: {
+                owner: onChainOwner,
+                issuer: issuerPublicKey,
+                isVerified: isVerified,
+                // We could infer type here, but getOnChainOwner abstracts it.
+                // For now, let's just trust the owner string.
             }
+        };
 
-            if (isTransfer) {
-                // Fetch ops to find receiver
-                const ops = await page.records.find(r => r.hash === tx.hash)?.operations();
-                if (ops && ops.records.length > 0) {
-                    const payment = ops.records.find(op => op.type === "payment" || op.type === "create_account");
-                    if (payment) {
-                        // @ts-ignore
-                        const recordOwner = payment.to || payment.account;
-
-                        // Add to history
-                        history.push({
-                            owner: recordOwner,
-                            txHash: tx.hash,
-                            timestamp: tx.created_at,
-                            type: "TRANSFER"
-                        });
-
-                        // If this is the first (latest) relevant event we found
-                        if (!foundTx) {
-                            owner = recordOwner;
-                            foundTx = tx.hash;
-                        }
-                    }
-                }
-            }
-        }
-
-        // Optimization: If we found the OWNER, we technically could stop if we only needed current owner.
-        // But for FULL HISTORY, we must keep scanning backwards until we find the REGISTRATION.
-        // Once we find REG, we can stop because that's the beginning of time for this asset.
-
-        // However, since we scan DESC (newest first), we find latest Transfer first.
-        // We need to keep going to find earlier transfers and finally the Reg.
-
-        // If we found the REG event, we can stop generally.
-        const regFound = history.some(h => h.type === "REGISTER");
-        if (regFound) break;
-
-        cursor = page.records[page.records.length - 1].paging_token;
+    } catch (e: any) {
+        console.error("Verification Error", e);
+        return {
+            registry: null,
+            live: { owner: null, issuer: "", isVerified: false },
+            error: e.message || "Verification Failed"
+        };
     }
-
-    if (!owner || !foundTx) return null;
-
-    // cache (only current owner)
-    if (!skipCache) {
-        setCachedOwnership(hash20, {
-            owner,
-            txHash: foundTx,
-            timestamp: Date.now()
-        });
-    }
-
-    return {
-        owner,
-        txHash: foundTx,
-        cached: false,
-        history: history // New field
-    };
 }

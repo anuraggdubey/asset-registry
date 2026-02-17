@@ -2,64 +2,93 @@ import {
     TransactionBuilder,
     Networks,
     Operation,
-    Memo,
-    Asset
+    Asset,
+    StrKey,
+    Claimant,
+    Memo
 } from "@stellar/stellar-sdk";
 import { server } from "./server";
 import { signTransaction } from "@stellar/freighter-api";
+import { getOnChainOwner } from "./ownership"; // Keep existing import of getOnChainOwner logic
 
 export async function transferAsset(
     senderPublicKey: string,
     receiverPublicKey: string,
-    fileHash20: string
+    issuerPublicKey: string, // Asset ID
+    assetCode: string = "ART"
 ) {
 
-    // Verify destination account exists
-    let receiverExists = true;
+    console.log("transferAsset initiating", { senderPublicKey, receiverPublicKey, issuerPublicKey, assetCode });
+
+    // 0. Validate Keys
+    if (!StrKey.isValidEd25519PublicKey(senderPublicKey)) throw new Error("Invalid Sender Public Key");
+    if (!StrKey.isValidEd25519PublicKey(receiverPublicKey)) throw new Error("Invalid Receiver Public Key");
+    if (!StrKey.isValidEd25519PublicKey(issuerPublicKey)) throw new Error("Invalid Issuer Public Key (Asset ID)");
+
     try {
-        await server.loadAccount(receiverPublicKey);
-    } catch {
-        receiverExists = false;
-    }
+        // 1. STRICT SECURITY CHECK
+        // Verify on-chain ownership before even building the TX
+        const currentOwner = await getOnChainOwner(assetCode, issuerPublicKey);
+        console.log("Current On-Chain Owner:", currentOwner);
 
-    const account = await server.loadAccount(senderPublicKey);
+        if (currentOwner !== senderPublicKey) {
+            // Check if it's already in a claimable balance sent by us?
+            // For now, strict check.
+            throw new Error(`SECURITY BLOCK: You are not the current blockchain owner of this asset. Current: ${currentOwner}, You: ${senderPublicKey}`);
+        }
 
-    const builder = new TransactionBuilder(account, {
-        fee: "100",
-        networkPassphrase: Networks.TESTNET,
-    });
+        // 2. Load Account
+        console.log("Loading sender account...");
+        const account = await server.loadAccount(senderPublicKey);
+        const asset = new Asset(assetCode, issuerPublicKey);
 
-    if (receiverExists) {
-        builder.addOperation(
-            Operation.payment({
-                destination: receiverPublicKey,
-                asset: Asset.native(),
-                amount: "0.1",
-            })
+        // 3. Build Claimable Balance Transaction
+        // We use Claimable Balance so the recipient does NOT need a trustline beforehand.
+        console.log("Building Claimable Balance Transaction...");
+        const tx = new TransactionBuilder(account, {
+            fee: "10000",
+            networkPassphrase: Networks.TESTNET,
+        })
+            .addMemo(Memo.text(`OWN|${assetCode}`))
+            .addOperation(
+                Operation.createClaimableBalance({
+                    asset: asset,
+                    amount: "1",
+                    claimants: [
+                        new Claimant(
+                            receiverPublicKey,
+                            Claimant.predicateUnconditional()
+                        )
+                    ]
+                })
+            )
+            .setTimeout(60)
+            .build();
+
+        // 4. Sign
+        console.log("Signing Transaction...");
+        const signed = await signTransaction(tx.toXDR(), {
+            networkPassphrase: Networks.TESTNET,
+        });
+
+        // 5. Submit
+        console.log("Submitting Transaction...");
+        const result = await server.submitTransaction(
+            TransactionBuilder.fromXDR(signed.signedTxXdr, Networks.TESTNET)
         );
-    } else {
-        // If receiver doesn't exist, we must create it (fund it)
-        // Minimum reserve is 1 XLM. We'll send 2 XLM to be safe and generous.
-        builder.addOperation(
-            Operation.createAccount({
-                destination: receiverPublicKey,
-                startingBalance: "2.0"
-            })
-        );
+        console.log("Transfer (ClaimableBalance) Success:", result.hash);
+
+        return result.hash;
+    } catch (e: any) {
+        console.error("transferAsset Failed:", e);
+
+        // Handle Horizon Errors
+        if (e.response?.data?.extras?.result_codes) {
+            const codes = e.response.data.extras.result_codes;
+            console.error("Horizon Result Codes:", codes);
+            throw new Error(`Transfer Failed: ${JSON.stringify(codes)}`);
+        }
+
+        throw e;
     }
-
-    const tx = builder
-        .addMemo(Memo.text(`OWN|${fileHash20}`))
-        .setTimeout(60)
-        .build();
-
-    const signed = await signTransaction(tx.toXDR(), {
-        networkPassphrase: Networks.TESTNET,
-    });
-
-    const result = await server.submitTransaction(
-        TransactionBuilder.fromXDR(signed.signedTxXdr, Networks.TESTNET)
-    );
-
-    return result.hash;
 }

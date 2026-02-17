@@ -8,6 +8,7 @@ import Card from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
 import Link from "next/link";
 import CopyButton from "@/components/ui/CopyButton";
+import IdentityBar from "@/components/ui/IdentityBar";
 
 export default function RegisterPage() {
     const { publicKey, connected } = useWalletStore();
@@ -37,8 +38,8 @@ export default function RegisterPage() {
 
         setLoading(true);
         try {
-            const txHash = await registerAsset(publicKey, hash);
-            setTx(txHash);
+            const result = await registerAsset(publicKey, hash);
+            setTx(result.txHash);
         } catch (error) {
             console.error(error);
             alert("Registration failed");
@@ -132,6 +133,13 @@ export default function RegisterPage() {
                                     </div>
                                 ) : (
                                     <div className="flex justify-end">
+                                        <div className="w-full mb-4">
+                                            <IdentityBar
+                                                label="Owner (You)"
+                                                address={publicKey || ""}
+                                                type="sender"
+                                            />
+                                        </div>
                                         <Button
                                             loading={loading}
                                             onClick={registerOnChain}

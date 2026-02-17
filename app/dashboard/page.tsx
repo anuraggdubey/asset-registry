@@ -42,27 +42,37 @@ export default function DashboardPage() {
         setLoading(true);
 
         try {
-            // 1. Fetch Activity
-            const history = await fetchAccountHistory(publicKey);
-            setActivities(history);
+            try {
+                // 1. Fetch Activity (Historical)
+                const history = await fetchAccountHistory(publicKey);
+                setActivities(history);
 
-            // 2. Derive "My Assets" from history + basic filtering?
-            // Actually, fetching "My Assets" generally requires scanning ALL my current balances or 
-            // relying on the history we just fetched to see what I registered or received.
-            // For this app, simply filtering the history for REGISTER or RECEIVE events is a decent approximation,
-            // though ideally we'd verify current ownership for each.
-            // Let's deduce unique assets from history.
+                // 2. Fetch "My Assets" from Registry API (Trusted/Indexed Source)
+                // This ensures we see assets even if history nodes are incomplete or slow.
+                // It also allows showing assets we own but haven't interacted with recently if indexed.
+                try {
+                    const res = await fetch(`/api/registry/collection?owner=${publicKey}`);
+                    const data = await res.json();
+                    if (data.assets) {
+                        setMyAssets(data.assets.map((a: any) => ({
+                            hash: a.id,
+                            // If we have a 'createdAt' or 'verifiedAt', use it.
+                            // Otherwise fallback to something else or just don't show date if missing.
+                            timestamp: a.createdAt || new Date().toISOString(),
+                            ...a
+                        })));
+                    }
+                } catch (e) {
+                    console.error("Failed to fetch collection:", e);
+                    // Fallback to deducing from history if API fails?
+                    // For now, just log it. The API should be the source of truth.
+                }
 
-            const uniqueAssets = new Set<string>();
-            history.forEach(item => uniqueAssets.add(item.assetHash));
-
-            // Transform to array
-            const deducedAssets = Array.from(uniqueAssets).map(hash => ({
-                hash,
-                timestamp: history.find(h => h.assetHash === hash)?.timestamp
-            }));
-
-            setMyAssets(deducedAssets);
+            } catch (error) {
+                console.error(error);
+            } finally {
+                setLoading(false);
+            }
 
         } catch (error) {
             console.error(error);
@@ -97,8 +107,8 @@ export default function DashboardPage() {
                 <button
                     onClick={() => setActiveTab("assets")}
                     className={`pb-4 px-6 text-sm font-medium transition-colors border-b-2 ${activeTab === "assets"
-                            ? "border-black text-black"
-                            : "border-transparent text-gray-500 hover:text-gray-700"
+                        ? "border-black text-black"
+                        : "border-transparent text-gray-500 hover:text-gray-700"
                         }`}
                 >
                     My Assets
@@ -106,8 +116,8 @@ export default function DashboardPage() {
                 <button
                     onClick={() => setActiveTab("activity")}
                     className={`pb-4 px-6 text-sm font-medium transition-colors border-b-2 ${activeTab === "activity"
-                            ? "border-black text-black"
-                            : "border-transparent text-gray-500 hover:text-gray-700"
+                        ? "border-black text-black"
+                        : "border-transparent text-gray-500 hover:text-gray-700"
                         }`}
                 >
                     Activity Log
@@ -115,8 +125,8 @@ export default function DashboardPage() {
                 <button
                     onClick={() => setActiveTab("verified")}
                     className={`pb-4 px-6 text-sm font-medium transition-colors border-b-2 ${activeTab === "verified"
-                            ? "border-black text-black"
-                            : "border-transparent text-gray-500 hover:text-gray-700"
+                        ? "border-black text-black"
+                        : "border-transparent text-gray-500 hover:text-gray-700"
                         }`}
                 >
                     Recently Verified

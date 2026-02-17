@@ -8,13 +8,13 @@ import { useWalletStore } from "@/lib/state/walletStore";
 import Card from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
 import Badge from "@/components/ui/Badge";
-import { Timeline } from "@/components/ui/Timeline";
 import CopyButton from "@/components/ui/CopyButton";
-import DownloadCertificateButton from "@/components/certificate/DownloadCertificateButton";
+import IdentityBar from "@/components/ui/IdentityBar";
 
 export default function AssetPage() {
     const params = useParams();
-    const hash = params.hash as string;
+    // In our new model, the 'ID' in the URL is the Issuer Public Key
+    const assetId = params.hash as string;
     const { publicKey, connected } = useWalletStore();
 
     const [data, setData] = useState<any>(null);
@@ -22,32 +22,43 @@ export default function AssetPage() {
     const [transferLoading, setTransferLoading] = useState(false);
     const [receiver, setReceiver] = useState("");
     const [transferTx, setTransferTx] = useState<string | null>(null);
+    const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
         loadData();
-    }, [hash]);
+    }, [assetId]);
 
-    async function loadData(skipCache = false) {
+    async function loadData() {
         setLoading(true);
-        const res = await verifyOwnership(hash, skipCache);
+        // assetId here acts as the Issuer (or Registry ID if URL updated)
+        const res = await verifyOwnership(assetId);
         setData(res);
         setLoading(false);
     }
 
     async function handleTransfer() {
         if (!publicKey || !receiver) return;
+        setError(null);
+
+        // Calculate Target Issuer
+        const targetIssuer = data?.live?.issuer || assetId;
+        console.log("Transfer Request:", { publicKey, receiver, targetIssuer });
+
+        // Basic Validation
+        if (targetIssuer.length !== 56 || !targetIssuer.startsWith("G")) {
+            setError("Invalid Asset Issuer. Cannot transfer this asset (Issuer Not Resolved).");
+            return;
+        }
 
         setTransferLoading(true);
         try {
-            // Check if hash is valid (handling the slice logic safely)
-            const safeHash = hash.slice(0, 20);
-            const tx = await transferAsset(publicKey, receiver, safeHash);
+            const tx = await transferAsset(publicKey, receiver, targetIssuer);
             setTransferTx(tx);
-            // Reload data to show new owner (might need a delay for network propagation in real app)
-            setTimeout(() => loadData(true), 4000);
-        } catch (e) {
+            // Reload data
+            setTimeout(() => loadData(), 5000);
+        } catch (e: any) {
             console.error(e);
-            alert("Transfer failed. Check console.");
+            setError(e.message || "Transfer failed");
         }
         setTransferLoading(false);
     }
@@ -63,18 +74,26 @@ export default function AssetPage() {
         );
     }
 
-    if (!data) {
+    const liveOwner = data?.live?.owner;
+    const registryInfo = data?.registry;
+
+    if (!liveOwner && !registryInfo) {
         return (
             <main className="max-w-4xl mx-auto py-16 px-6 text-center">
                 <h1 className="text-2xl font-bold text-neutral-900 mb-2">Asset Not Found</h1>
                 <p className="text-neutral-500">
-                    The fingerprint <span className="font-mono text-sm bg-gray-100 p-1 rounded">{hash.slice(0, 10)}...</span> is not registered on the Stellar network.
+                    No active trustline found for this Asset ID.
                 </p>
+                <p className="text-xs text-gray-400 mt-2">ID: {assetId}</p>
             </main>
         );
     }
 
-    const isOwner = publicKey === data.owner;
+    // Debugging Ownership
+    console.log("Ownership Check:", { publicKey, liveOwner });
+
+    // Case-insensitive comparison
+    const isOwner = publicKey && liveOwner && (publicKey.toLowerCase() === liveOwner.toLowerCase());
 
     return (
         <main className="max-w-5xl mx-auto py-16 px-6 grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -84,140 +103,135 @@ export default function AssetPage() {
                 <div className="mb-6">
                     <div className="flex items-center gap-3 mb-2">
                         <h1 className="text-3xl font-bold text-neutral-900">Digital Asset</h1>
-                        <Badge variant="success">Active</Badge>
+                        {registryInfo ? (
+                            <Badge variant="success">Registered</Badge>
+                        ) : (
+                            <Badge variant="warning">Legacy / Unregistered</Badge>
+                        )}
                     </div>
-                    <div className="flex items-center gap-2">
-                        <p className="font-mono text-xs text-neutral-400 break-all">{hash}</p>
-                        <CopyButton text={hash} />
+
+                    {registryInfo && (
+                        <div className="mb-4 bg-blue-50 p-3 rounded border border-blue-100">
+                            <p className="text-xs text-blue-500 uppercase font-bold">Registry ID</p>
+                            <p className="text-xl font-bold text-blue-800">{registryInfo.id}</p>
+                        </div>
+                    )}
+
+                    <div className="space-y-1">
+                        <p className="text-xs text-gray-500 uppercase font-bold">Issuer ID</p>
+                        <div className="flex items-center gap-2">
+                            <p className="font-mono text-xs text-neutral-600 break-all">{data?.live?.issuer || assetId}</p>
+                            <CopyButton text={data?.live?.issuer || assetId} />
+                        </div>
                     </div>
+
+                    {registryInfo && (
+                        <div className="mt-4 space-y-1">
+                            <p className="text-xs text-gray-500 uppercase font-bold">Metadata Hash</p>
+                            <p className="font-mono text-sm text-neutral-900 break-all">{registryInfo.metadataHash}</p>
+                        </div>
+                    )}
                 </div>
 
                 <Card title="Ownership Status">
                     <div className="flex items-center gap-4 mb-6">
-                        <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center text-xl">
-                            👤
+                        <div className="w-12 h-12 rounded-full bg-blue-50 flex items-center justify-center text-xl text-blue-600">
+                            🛡️
                         </div>
                         <div className="flex-1">
                             <div className="flex items-center gap-2 mb-1">
-                                <p className="text-xs text-neutral-500 uppercase font-semibold">Current Owner</p>
-                                <CopyButton text={data.owner} />
+                                <p className="text-xs text-neutral-500 uppercase font-semibold">True On-Chain Owner</p>
+                                <CopyButton text={liveOwner || "None"} />
                             </div>
-                            <p className="font-mono text-neutral-900 text-sm break-all">{data.owner}</p>
+                            <p className="font-mono text-neutral-900 text-sm break-all">{liveOwner || "No Active Owner"}</p>
                         </div>
                     </div>
 
-                    <div className="pt-6 border-t border-gray-100">
-                        <h4 className="text-sm font-semibold text-neutral-900 mb-4">Activity History</h4>
-                        <Timeline>
-                            {/* Render Full History if available, otherwise just latest */}
-                            {data.history ? (
-                                data.history.map((event: any, idx: number) => (
-                                    <div key={idx} className="flex gap-4">
-                                        <div className="w-24 text-right pt-1">
-                                            <span className="text-xs text-gray-500 font-mono">
-                                                {new Date(event.timestamp).toLocaleDateString()}
-                                            </span>
-                                        </div>
-                                        <div className="relative flex flex-col items-center">
-                                            <div className={`
-                                                w-3 h-3 rounded-full z-10 border-2 border-white ring-1 ring-gray-200
-                                                ${event.type === 'REGISTER' ? 'bg-purple-600' : 'bg-neutral-900'}
-                                            `}></div>
-                                            {/* Line connector */}
-                                            {idx < data.history.length - 1 && (
-                                                <div className="w-0.5 h-full bg-gray-200 absolute top-3"></div>
-                                            )}
-                                        </div>
-                                        <div className="pb-8 pt-0.5">
-                                            <h4 className="text-sm font-medium text-gray-900">
-                                                {event.type === 'REGISTER' ? 'Asset Registered' : 'Ownership Transferred'}
-                                            </h4>
-                                            <div className="text-xs text-gray-500 mt-1">
-                                                <span className="font-semibold">{event.type === 'REGISTER' ? 'Creator' : 'To'}:</span> {event.owner.slice(0, 8)}...
-                                            </div>
-                                            <div className="text-xs text-gray-500 mt-1 font-mono break-all flex items-center gap-2">
-                                                TX: {event.txHash.slice(0, 8)}...
-                                                <CopyButton text={event.txHash} />
-                                            </div>
-                                        </div>
-                                    </div>
-                                ))
-                            ) : (
-                                <div className="flex gap-4">
-                                    <div className="w-24 text-right pt-1">
-                                        <span className="text-xs text-gray-500 font-mono">Latest</span>
-                                    </div>
-                                    <div className="relative flex flex-col items-center">
-                                        <div className="w-3 h-3 bg-neutral-900 rounded-full z-10 border-2 border-white ring-1 ring-gray-200"></div>
-                                    </div>
-                                    <div className="pb-8 pt-0.5">
-                                        <h4 className="text-sm font-medium text-gray-900">Ownership Confirmed</h4>
-                                        <div className="text-xs text-gray-500 mt-1 font-mono break-all flex items-center gap-2">
-                                            TX: {data.txHash}
-                                            <CopyButton text={data.txHash} />
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
-                        </Timeline>
-                    </div>
+                    {!isOwner && (
+                        <div className="bg-yellow-50 border border-yellow-200 p-3 rounded text-sm text-yellow-800">
+                            <p className="font-bold">⚠ You are not the active owner.</p>
+                            <p className="text-xs mt-1">
+                                Current Owner: {liveOwner ? liveOwner.slice(0, 6) + "..." + liveOwner.slice(-6) : "None"} <br />
+                                Your Wallet: {publicKey ? publicKey.slice(0, 6) + "..." + publicKey.slice(-6) : "Not Connected"}
+                            </p>
+                        </div>
+                    )}
                 </Card>
             </div>
 
             {/* Right Column: Actions */}
             <div className="space-y-6">
                 <Card title="Actions">
-                    {/* Sticky behavior removed for simplicity in Card component */}
                     {isOwner ? (
                         <div className="space-y-4">
-                            <div className="bg-blue-50 p-3 rounded-md border border-blue-100 mb-4">
-                                <p className="text-xs text-blue-800 font-medium mb-2">
-                                    You are the verified owner of this asset.
+                            <div className="bg-green-50 p-3 rounded-md border border-green-100 mb-4">
+                                <p className="text-xs text-green-800 font-medium">
+                                    ✅ You are the verified owner.
                                 </p>
-                                <DownloadCertificateButton
-                                    data={{
-                                        certificateId: `${hash.slice(0, 8).toUpperCase()}-${Date.now().toString().slice(-6)}`,
-                                        assetHash: hash.slice(0, 20) + "...",
-                                        fullFingerprint: hash,
-                                        ownerAddress: publicKey!,
-                                        txHash: data.txHash,
-                                        timestamp: new Date().toLocaleString() // Ideally from blockchain timestamp
-                                    }}
-                                />
                             </div>
 
-                            <label className="block text-sm font-medium text-neutral-700 mb-1">
+                            <label className="block text-sm font-medium text-neutral-700 mb-2">
                                 Transfer Ownership
                             </label>
-                            <input
-                                type="text"
-                                placeholder="Recipient Public Key (G...)"
-                                value={receiver}
-                                onChange={(e) => setReceiver(e.target.value)}
-                                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-neutral-900 focus:border-transparent outline-none transition-all"
-                            />
+
+                            <div className="space-y-2 mb-4">
+                                <IdentityBar
+                                    label="From (You)"
+                                    address={publicKey || ""}
+                                    type="sender"
+                                />
+
+                                <div className="flex justify-center -my-2 relative z-10">
+                                    <div className="bg-gray-100 rounded-full p-1 border border-gray-200 text-gray-400">
+                                        ⬇
+                                    </div>
+                                </div>
+
+                                <div className="space-y-1">
+                                    <p className="text-[10px] text-gray-500 font-bold uppercase">To (Recipient)</p>
+                                    <input
+                                        type="text"
+                                        placeholder="Recipient Public Key (G...)"
+                                        value={receiver}
+                                        onChange={(e) => setReceiver(e.target.value)}
+                                        className="w-full border border-gray-300 rounded-md px-3 py-3 text-sm outline-none focus:border-black font-mono shadow-sm"
+                                    />
+                                </div>
+                            </div>
+                            <p className="text-[10px] text-gray-400">
+                                Note: Limits range of 0.0000001 XLM will be reserved for the claimable balance.
+                            </p>
+
+                            {error && (
+                                <p className="text-xs text-red-600 font-bold bg-red-50 p-2 rounded">
+                                    {error}
+                                </p>
+                            )}
+
                             <Button
                                 variant="primary"
                                 className="w-full"
                                 onClick={handleTransfer}
                                 loading={transferLoading}
                             >
-                                Transfer Asset
+                                Transfer Securely
                             </Button>
 
                             {transferTx && (
                                 <div className="mt-4 p-3 bg-green-50 border border-green-100 rounded text-xs text-green-700 break-all">
-                                    Transfer initiated! TX: {transferTx}
+                                    Success! TX: {transferTx}
                                 </div>
                             )}
                         </div>
                     ) : (
                         <div className="text-center py-6 text-neutral-500 text-sm">
-                            <p className="mb-2">You are not the owner.</p>
+                            <p className="mb-2">View Only Mode</p>
                             {connected ? (
-                                <p className="text-xs text-neutral-400 break-all">Current: {publicKey?.slice(0, 6)}...</p>
+                                <p className="text-xs text-neutral-400 break-all">Your wallet: {publicKey?.slice(0, 6)}...</p>
                             ) : (
-                                <p className="text-xs bg-gray-100 py-1 px-2 rounded inline-block">Connect wallet to interact</p>
+                                <Button variant="secondary" onClick={() => { }} className="w-full">
+                                    Connect Wallet
+                                </Button>
                             )}
                         </div>
                     )}
