@@ -2,19 +2,17 @@ import { create } from "zustand";
 import {
     StellarWalletsKit,
     WalletNetwork,
-    allowAllModules,
-    XBULL_MODULE_NAME,
-    FREIGHTER_MODULE_NAME,
-    ALBEDO_MODULE_NAME,
-    HANA_MODULE_NAME
+    allowAllModules
 } from "@creit.tech/stellar-wallets-kit";
 
-// Initialize Kit (outside hook to exist globally)
-export const kit = new StellarWalletsKit({
-    network: WalletNetwork.TESTNET,
-    selectedWalletId: "freighter",
-    modules: allowAllModules(),
-});
+// Initialize Kit (lax lazy init to avoid SSR window error)
+export const kit = typeof window !== "undefined"
+    ? new StellarWalletsKit({
+        network: WalletNetwork.TESTNET,
+        selectedWalletId: "freighter",
+        modules: allowAllModules(),
+    })
+    : null as unknown as StellarWalletsKit;
 
 type WalletState = {
     publicKey: string | null;

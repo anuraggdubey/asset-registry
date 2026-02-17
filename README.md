@@ -1,96 +1,66 @@
 # Stellar Asset Registry
+
 ### Decentralized Proof-of-Ownership for Digital Files
 
-A mini-dApp built on the Stellar Testnet that allows anyone to permanently register, transfer, and verify ownership of digital assets using blockchain transactions.
+A production-grade dApp on the **Stellar Testnet** that allows creators to permanently **register**, **transfer**, and **verify** ownership of digital assets. Uses a hybrid approach with on-chain cryptographic proofs and off-chain metadata indexing.
 
-Instead of storing files on chain, this project stores **cryptographic fingerprints** of files and records ownership events using Stellar transaction memos.
-
----
-
-## Problem
-
-Digital creators (designers, photographers, developers) cannot easily prove ownership of their files.
-
-Screenshots, timestamps, and cloud storage are not trustworthy proof.
-
-We need:
-• Tamper-proof ownership  
-• Transferable rights  
-• Public verification  
-
----
-
-## Solution
-
-This dApp turns the Stellar blockchain into an ownership ledger.
-
-Workflow:
-
-1. Upload file → SHA256 fingerprint generated
-2. Register → fingerprint recorded on blockchain (REG event)
-3. Transfer → ownership transferred (OWN event)
-4. Verify → anyone can confirm owner instantly
-
-No central database required.
+[**Live Demo**](https://your-demo-url.vercel.app) | [**Demo Video**](https://youtu.be/your-video-link)
 
 ---
 
 ## Key Features
 
-- Wallet authentication (Freighter)
-- On-chain ownership registry
-- Ownership transfer system
-- Public verification portal
-- Local caching for fast verification
-- Fully deterministic hashing
-- Tested ownership resolution logic
+- **Multi-Wallet Support**: Connect with Freighter, Albedo, xBull, or Rabet using `@creit.tech/stellar-wallets-kit`.
+- **Asset Registration**: Hashes files locally (SHA-256) and stamps the fingerprint on the Stellar Blockchain using deterministic ID generation.
+- **Secure Transfers**: Transfer ownership using **Claimable Balances**, ensuring assets can be sent to any public key without prior trustlines.
+- **Proof of Ownership**: Generate and download professional **PDF Certificates** of ownership and **Transaction Receipts**.
+- **Instant Verification**: Publicly verify any asset's history and current owner by its registry ID or file hash.
+
+---
+
+## 🚀 Getting Started
+
+1.  **Clone the repository**
+    ```bash
+    git clone https://github.com/anuraggdubey/asset-registry.git
+    cd asset-registry
+    ```
+
+2.  **Install Dependencies**
+    ```bash
+    npm install
+    ```
+
+3.  **Run Development Server**
+    ```bash
+    npm run dev
+    ```
+    Open [http://localhost:3000](http://localhost:3000).
+
+---
+
+## 🧪 Tests
+
+The project includes a comprehensive test suite for hashing, ownership logic, and component rendering.
+
+```bash
+npm test
+```
+
+![Test Output](https://placeholder-image.com/tests-passing.png)
+*(Run tests locally to see passing results)*
 
 ---
 
 ## Architecture
 
-File → Hash → Blockchain Memo → Ownership Resolver → Cache → UI
-
-The blockchain acts as the source of truth.
-The frontend acts as a verification client.
+-   **Frontend**: Next.js 14 (App Router), TailwindCSS, Zustand.
+-   **Blockchain**: Stellar SDK, Soroban (Future), Horizon API.
+-   **Indexing**: Firebase (for performance) + Blockchain (Source of Truth).
+-   **Security**: Non-custodial, client-side signing.
 
 ---
 
-## Tests
+## License
 
-The project includes unit tests validating:
-
-- Deterministic hashing
-- Memo event parsing
-- Ownership resolution after transfers
-
-Run tests:
-
-```bash
-npm test
-
-Run locally:
-npm install
-npm run dev
-Open: http://localhost:3000
-
-Why Stellar?
-
-Stellar allows low-cost transactions and public history access,
-making it ideal for building verifiable ownership registries.
-
-Demo Use Case
-
-A designer uploads artwork → registers ownership → sends ownership to client → client can publicly verify authenticity.
-
-This creates a blockchain-based certificate of authenticity.
-
-Future Improvements
-
-IPFS storage integration
-
-NFT metadata compatibility
-
-Legal contract anchoring
-
-Multi-file collections
+MIT
