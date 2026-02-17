@@ -136,6 +136,7 @@ export default function VerifyPage() {
                         <h3 className="font-bold text-gray-900">Ownership Tools</h3>
                         {isVerified && result.registry ? (
                             <CertificateGenerator data={{
+                                type: "OWNERSHIP",
                                 registryId: result.registry.id,
                                 assetCode: result.registry.code || "ART",
                                 issuer: result.live.issuer,
