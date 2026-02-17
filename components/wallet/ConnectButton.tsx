@@ -1,44 +1,31 @@
-"use client";
-
 import { useWalletStore } from "@/lib/state/walletStore";
-import { requestAccess } from "@stellar/freighter-api";
 
 export default function ConnectButton() {
-    const { publicKey, connected, setWallet, disconnect } = useWalletStore();
+    const { publicKey, connected, connect, disconnect } = useWalletStore();
 
-    const connectWallet = async () => {
-        try {
-            const res = await requestAccess();
-
-            // New Freighter API returns object
-            if (typeof res === "object" && "address" in res) {
-                setWallet(res.address);
-            } else if (typeof res === "string") {
-                setWallet(res);
-            } else {
-                throw new Error("Wallet not found");
-            }
-        } catch (err) {
-            console.error(err);
-            alert("Freighter not installed or locked");
-        }
-    };
+    // Auto-restore is handled by WalletProvider.tsx
 
     if (connected && publicKey) {
         return (
-            <button
-                onClick={disconnect}
-                className="px-4 py-2 bg-red-500 text-white rounded"
-            >
-                {publicKey.substring(0, 5)}... Disconnect
-            </button>
+            <div className="flex items-center gap-4">
+                <div className="hidden md:block text-right">
+                    <p className="text-xs text-gray-400 font-medium">Connected</p>
+                    <p className="text-sm font-mono font-bold text-gray-900">{publicKey.substring(0, 4)}...{publicKey.substring(publicKey.length - 4)}</p>
+                </div>
+                <button
+                    onClick={disconnect}
+                    className="px-4 py-2 bg-red-50 text-red-600 hover:bg-red-100 rounded-md text-sm font-medium transition-colors border border-red-200"
+                >
+                    Disconnect
+                </button>
+            </div>
         );
     }
 
     return (
         <button
-            onClick={connectWallet}
-            className="px-4 py-2 bg-black text-white rounded"
+            onClick={connect}
+            className="px-6 py-2.5 bg-neutral-900 hover:bg-neutral-800 text-white rounded-md text-sm font-medium transition-colors shadow-sm"
         >
             Connect Wallet
         </button>

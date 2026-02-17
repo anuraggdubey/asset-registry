@@ -75,7 +75,7 @@ export default function Navbar() {
 
             {/* Mobile Menu Overlay */}
             {mobileMenuOpen && (
-                <div className="fixed inset-0 bg-white z-40 flex flex-col pt-24 px-6 md:hidden animate-in slide-in-from-top-10 duration-200">
+                <div className="fixed inset-0 bg-white z-[100] flex flex-col pt-24 px-6 md:hidden animate-in slide-in-from-top-10 duration-200">
                     <div className="flex flex-col gap-6 text-lg font-medium">
                         <Link href="/dashboard" onClick={toggleMenu} className={`${isActive("/dashboard")}`}>
                             Dashboard

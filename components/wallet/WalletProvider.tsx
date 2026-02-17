@@ -8,11 +8,10 @@ export default function WalletProvider({
 }: {
     children: React.ReactNode;
 }) {
-    const restoreWallet = useWalletStore((s) => s.restoreWallet);
+    const restore = useWalletStore((s) => s.restore);
 
     useEffect(() => {
-        const saved = localStorage.getItem("wallet");
-        if (saved) restoreWallet(saved);
+        restore();
     }, []);
 
     return <>{children}</>;

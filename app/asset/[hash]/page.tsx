@@ -10,6 +10,7 @@ import Button from "@/components/ui/Button";
 import Badge from "@/components/ui/Badge";
 import CopyButton from "@/components/ui/CopyButton";
 import IdentityBar from "@/components/ui/IdentityBar";
+import CertificateGenerator from "@/components/certificate/CertificateGenerator";
 
 export default function AssetPage() {
     const params = useParams();
@@ -218,10 +219,42 @@ export default function AssetPage() {
                             </Button>
 
                             {transferTx && (
-                                <div className="mt-4 p-3 bg-green-50 border border-green-100 rounded text-xs text-green-700 break-all">
-                                    Success! TX: {transferTx}
+                                <div className="mt-4 p-3 bg-green-50 border border-green-100 rounded text-xs text-green-700 break-all space-y-2">
+                                    <p>Success! TX: {transferTx}</p>
+                                    <CertificateGenerator
+                                        data={{
+                                            type: "TRANSFER",
+                                            registryId: registryInfo?.id || "N/A",
+                                            assetCode: registryInfo?.code || "ART",
+                                            issuer: data?.live?.issuer,
+                                            ownerName: "Recipient",
+                                            ownerAddress: receiver,
+                                            senderAddress: publicKey || "",
+                                            txHash: transferTx,
+                                            issueDate: new Date().toISOString(),
+                                            verifyUrl: window.location.href
+                                        }}
+                                    />
                                 </div>
                             )}
+
+                            {/* Owner Certificate */}
+                            <div className="mt-8 pt-6 border-t border-gray-100">
+                                <h3 className="text-sm font-medium text-gray-900 mb-3">Documents</h3>
+                                <CertificateGenerator
+                                    data={{
+                                        type: "OWNERSHIP",
+                                        registryId: registryInfo?.id || "N/A",
+                                        assetCode: registryInfo?.code || "ART",
+                                        issuer: data?.live?.issuer,
+                                        ownerName: "Verified Owner",
+                                        ownerAddress: publicKey!,
+                                        txHash: "Verified On-Chain", // We might not have the original mint TX handy here easily without more queries
+                                        issueDate: new Date().toISOString(),
+                                        verifyUrl: window.location.href
+                                    }}
+                                />
+                            </div>
                         </div>
                     ) : (
                         <div className="text-center py-6 text-neutral-500 text-sm">

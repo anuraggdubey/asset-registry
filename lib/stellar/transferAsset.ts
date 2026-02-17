@@ -8,7 +8,8 @@ import {
     Memo
 } from "@stellar/stellar-sdk";
 import { server } from "./server";
-import { signTransaction } from "@stellar/freighter-api";
+import { kit } from "@/lib/state/walletStore";
+import { WalletNetwork } from "@creit.tech/stellar-wallets-kit";
 import { getOnChainOwner } from "./ownership"; // Keep existing import of getOnChainOwner logic
 
 export async function transferAsset(
@@ -66,15 +67,18 @@ export async function transferAsset(
             .build();
 
         // 4. Sign
-        console.log("Signing Transaction...");
-        const signed = await signTransaction(tx.toXDR(), {
-            networkPassphrase: Networks.TESTNET,
-        });
+        console.log("Signing Transaction with Kit...");
+        const { signedTxXdr } = await kit.signTransaction(
+            tx.toXDR(),
+            {
+                networkPassphrase: Networks.TESTNET,
+            }
+        );
 
         // 5. Submit
         console.log("Submitting Transaction...");
         const result = await server.submitTransaction(
-            TransactionBuilder.fromXDR(signed.signedTxXdr, Networks.TESTNET)
+            TransactionBuilder.fromXDR(signedTxXdr, Networks.TESTNET)
         );
         console.log("Transfer (ClaimableBalance) Success:", result.hash);
 

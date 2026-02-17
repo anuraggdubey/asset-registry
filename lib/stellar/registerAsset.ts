@@ -8,7 +8,8 @@ import {
     Memo
 } from "@stellar/stellar-sdk";
 import { server } from "./server";
-import { signTransaction } from "@stellar/freighter-api";
+import { kit } from "@/lib/state/walletStore";
+import { WalletNetwork } from "@creit.tech/stellar-wallets-kit";
 import axios from "axios";
 
 export async function registerAsset(userPublicKey: string, hash: string) {
@@ -81,12 +82,16 @@ export async function registerAsset(userPublicKey: string, hash: string) {
     tx.sign(issuerKeypair);
 
     // 6. Sign User & Submit
-    const signedXdr = await signTransaction(tx.toXDR(), {
-        networkPassphrase: Networks.TESTNET,
-    });
+    // Use the Kit to sign with the *active* wallet (could be Albedo, xBull, etc.)
+    const { signedTxXdr } = await kit.signTransaction(
+        tx.toXDR(),
+        {
+            networkPassphrase: Networks.TESTNET,
+        }
+    );
 
     const result = await server.submitTransaction(
-        TransactionBuilder.fromXDR(signedXdr.signedTxXdr, Networks.TESTNET)
+        TransactionBuilder.fromXDR(signedTxXdr, Networks.TESTNET)
     );
 
     // 7. Sync Registry (Activate)
