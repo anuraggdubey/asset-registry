@@ -9,7 +9,7 @@ import CopyButton from "./CopyButton";
 
 export default function Navbar() {
     const pathname = usePathname();
-    const { publicKey } = useWalletStore();
+    const { publicKey, disconnect } = useWalletStore();
 
     const isActive = (path: string) => pathname === path ? "text-neutral-900 font-medium" : "text-neutral-500 hover:text-neutral-900";
 
@@ -45,15 +45,23 @@ export default function Navbar() {
 
                 <div className="flex items-center gap-4">
                     {/* Desktop Wallet & Mobile Hamburger Right Side */}
-                    <div className="hidden md:flex">
+                    <div className="hidden md:flex items-center gap-3">
                         {publicKey ? (
-                            <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-50 rounded-full border border-gray-200">
-                                <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
-                                <span className="font-mono text-xs text-gray-600">
-                                    {publicKey.slice(0, 4)}...{publicKey.slice(-4)}
-                                </span>
-                                <CopyButton text={publicKey} className="text-[10px] py-0.5 px-1.5 h-auto text-gray-500 bg-white border border-gray-200" />
-                            </div>
+                            <>
+                                <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-50 rounded-full border border-gray-200">
+                                    <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
+                                    <span className="font-mono text-xs text-gray-600">
+                                        {publicKey.slice(0, 4)}...{publicKey.slice(-4)}
+                                    </span>
+                                    <CopyButton text={publicKey} className="text-[10px] py-0.5 px-1.5 h-auto text-gray-500 bg-white border border-gray-200" />
+                                </div>
+                                <button
+                                    onClick={() => disconnect()}
+                                    className="text-xs text-red-500 hover:text-red-700 font-medium px-2"
+                                >
+                                    Disconnect
+                                </button>
+                            </>
                         ) : (
                             <ConnectButton />
                         )}
@@ -100,7 +108,12 @@ export default function Navbar() {
                                         </span>
                                         <CopyButton text={publicKey} />
                                     </div>
-                                    <div className="text-xs text-gray-500">Wallet Connected</div>
+                                    <button
+                                        onClick={() => { disconnect(); toggleMenu(); }}
+                                        className="text-sm text-red-500 hover:text-red-700 font-medium text-left"
+                                    >
+                                        Disconnect Wallet
+                                    </button>
                                 </div>
                             ) : (
                                 <ConnectButton />

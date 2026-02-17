@@ -1,66 +1,52 @@
-# Stellar Asset Registry
+Stellar Asset Registry
+Blockchain-Based Digital Ownership & Verification
 
-### Decentralized Proof-of-Ownership for Digital Files
+A Web3 application built on the Stellar Testnet that lets creators secure, transfer, and publicly verify ownership of digital files using cryptographic proofs recorded on blockchain.
 
-A production-grade dApp on the **Stellar Testnet** that allows creators to permanently **register**, **transfer**, and **verify** ownership of digital assets. Uses a hybrid approach with on-chain cryptographic proofs and off-chain metadata indexing.
+Designed for real-world use cases like certificates, creative work, contracts, and digital collectibles — fast, transparent, and trustless.
 
-[**Live Demo**](https://your-demo-url.vercel.app) | [**Demo Video**](https://youtu.be/your-video-link)
+## Demo
+[Watch Demo Video](https://drive.google.com/file/d/1AY2dYAcFIYuClupk-apw7B1k2p26Pm_8/view?usp=sharing)
 
----
 
-## Key Features
+Features
+Connect multiple wallets (Freighter, Albedo, xBull, Rabet)
+Local SHA-256 hashing (files never uploaded)
+Permanent blockchain ownership record
+Secure ownership transfer via Claimable Balances
+Public verification using Asset ID or file hash
+Downloadable ownership certificate & transaction receipt (PDF)
 
-- **Multi-Wallet Support**: Connect with Freighter, Albedo, xBull, or Rabet using `@creit.tech/stellar-wallets-kit`.
-- **Asset Registration**: Hashes files locally (SHA-256) and stamps the fingerprint on the Stellar Blockchain using deterministic ID generation.
-- **Secure Transfers**: Transfer ownership using **Claimable Balances**, ensuring assets can be sent to any public key without prior trustlines.
-- **Proof of Ownership**: Generate and download professional **PDF Certificates** of ownership and **Transaction Receipts**.
-- **Instant Verification**: Publicly verify any asset's history and current owner by its registry ID or file hash.
+Workflow
+File fingerprint generated locally
+Ownership recorded on Stellar
+Metadata indexed for fast lookup
+Ownership transferable to any address
+Anyone can verify authenticity instantly
 
----
+Tech Stack
+Frontend: Next.js 14, TailwindCSS, Zustand
+Blockchain: Stellar SDK, Horizon API
+Database: Firebase Firestore
+Security: Non-custodial, client-side signing
 
-## 🚀 Getting Started
+Setup
+git clone https://github.com/anuraggdubey/asset-registry.git
+cd asset-registry
+npm install
+npm run dev
 
-1.  **Clone the repository**
-    ```bash
-    git clone https://github.com/anuraggdubey/asset-registry.git
-    cd asset-registry
-    ```
+Open http://localhost:3000
 
-2.  **Install Dependencies**
-    ```bash
-    npm install
-    ```
+Screenshots:
+### Home Page
+![Home Page](Screenshots/overview.png)
 
-3.  **Run Development Server**
-    ```bash
-    npm run dev
-    ```
-    Open [http://localhost:3000](http://localhost:3000).
+### Tests Passed
+![Tests Passed](Screenshots/tests-img.png)
 
----
-
-## 🧪 Tests
-
-The project includes a comprehensive test suite for hashing, ownership logic, and component rendering.
-
-```bash
-npm test
-```
-
-![Test Output](https://placeholder-image.com/tests-passing.png)
-*(Run tests locally to see passing results)*
-
----
-
-## Architecture
-
--   **Frontend**: Next.js 14 (App Router), TailwindCSS, Zustand.
--   **Blockchain**: Stellar SDK, Soroban (Future), Horizon API.
--   **Indexing**: Firebase (for performance) + Blockchain (Source of Truth).
--   **Security**: Non-custodial, client-side signing.
-
----
-
-## License
-
+License:
 MIT
+
+Author 
+~Anurag Dubey
