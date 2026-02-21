@@ -1,0 +1,17 @@
+# .cargo/config.toml
+# Windows-specific fix for OS Error 32 (file locking during build)
+
+[build]
+# Move target dir outside Desktop (where Windows Defender scans aggressively)
+# This prevents OS Error 32: "file is being used by another process"
+target-dir = "C:\\tmp\\cargo-target"
+# Disable incremental compilation — another cause of .o file lock errors on Windows
+incremental = false
+
+[target.x86_64-pc-windows-msvc]
+# Single codegen unit prevents concurrent file writes that cause locks
+rustflags = ["-C", "codegen-units=1"]
+
+[target.wasm32-unknown-unknown]
+rustflags = ["-C", "link-arg=-s"]
+

@@ -43,7 +43,7 @@ Screenshots:
 ![Home Page](Screenshots/overview.png)
 
 ### Tests Passed
-![Tests Passed](Screenshots/tests-img.png)
+![Tests Passed](Screenshots/tests-image.png)
 
 License:
 MIT
