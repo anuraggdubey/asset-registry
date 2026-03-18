@@ -1,6 +1,6 @@
 #![no_std]
 
-use soroban_sdk::{contract, contractimpl, contracttype, Env, Symbol, Address};
+use soroban_sdk::{contract, contractimpl, contracttype, Address, Env, String};
 
 #[contract]
 pub struct Registry;
@@ -13,29 +13,22 @@ pub struct Asset {
 
 #[contractimpl]
 impl Registry {
-
-    // register a new asset
-    pub fn register(env: Env, id: Symbol, owner: Address) {
+    pub fn register(env: Env, id: String, owner: Address) {
+        owner.require_auth();
         if env.storage().instance().has(&id) {
             panic!("asset already registered");
         }
         env.storage().instance().set(&id, &Asset { owner });
     }
 
-    // transfer ownership
-    pub fn transfer(env: Env, id: Symbol, from: Address, to: Address) {
+    pub fn transfer(env: Env, id: String, to: Address) {
         let mut asset: Asset = env.storage().instance().get(&id).unwrap();
-
-        if asset.owner != from {
-            panic!("not owner");
-        }
-
+        asset.owner.require_auth();
         asset.owner = to;
         env.storage().instance().set(&id, &asset);
     }
 
-    // get owner
-    pub fn owner(env: Env, id: Symbol) -> Address {
+    pub fn owner(env: Env, id: String) -> Address {
         let asset: Asset = env.storage().instance().get(&id).unwrap();
         asset.owner
     }

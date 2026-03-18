@@ -28,8 +28,8 @@ export default function UploadBox() {
         if (!hash || !publicKey) return;
 
         setLoading(true);
-        const txHash = await registerAsset(publicKey, hash);
-        setTx(txHash);
+        const result = await registerAsset(publicKey, hash);
+        setTx(result.txHash);
         setLoading(false);
     };
 

@@ -15,7 +15,7 @@ export interface RegistryAsset {
     currentKnownOwner: string; // Cached
     createdAt: number;
     lastVerifiedLedger: number;
-    status: 'active' | 'burned' | 'flagged';
+    status: 'pending' | 'active' | 'burned' | 'flagged';
 }
 
 export interface OwnershipEvent {
@@ -32,5 +32,5 @@ export interface VerificationLog {
     registeredAssetId: string;
     verifiedOwner: string;
     verifiedAt: number;
-    verificationSource: 'live_chain';
+    verificationSource: 'live_chain' | 'soroban_contract';
 }

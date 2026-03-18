@@ -38,10 +38,7 @@ export default function TransferPage() {
         setLoading(true);
 
         try {
-            // Internally slice to 20 chars for the memo
-            const safeHash = hash.slice(0, 20);
-
-            const txHash = await transferAsset(publicKey, receiver, safeHash);
+            const txHash = await transferAsset(publicKey, receiver, hash);
             setTx(txHash);
         } catch (e: any) {
             console.error(e);

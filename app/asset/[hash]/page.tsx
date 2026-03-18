@@ -14,7 +14,6 @@ import CertificateGenerator from "@/components/certificate/CertificateGenerator"
 
 export default function AssetPage() {
     const params = useParams();
-    // In our new model, the 'ID' in the URL is the Issuer Public Key
     const assetId = params.hash as string;
     const { publicKey, connected } = useWalletStore();
 
@@ -31,7 +30,6 @@ export default function AssetPage() {
 
     async function loadData() {
         setLoading(true);
-        // assetId here acts as the Issuer (or Registry ID if URL updated)
         const res = await verifyOwnership(assetId);
         setData(res);
         setLoading(false);
@@ -41,21 +39,18 @@ export default function AssetPage() {
         if (!publicKey || !receiver) return;
         setError(null);
 
-        // Calculate Target Issuer
-        const targetIssuer = data?.live?.issuer || assetId;
-        console.log("Transfer Request:", { publicKey, receiver, targetIssuer });
+        const targetAssetHash = registryInfo?.metadataHash || assetId;
+        console.log("Transfer Request:", { publicKey, receiver, targetAssetHash });
 
-        // Basic Validation
-        if (targetIssuer.length !== 56 || !targetIssuer.startsWith("G")) {
-            setError("Invalid Asset Issuer. Cannot transfer this asset (Issuer Not Resolved).");
+        if (targetAssetHash.length < 20) {
+            setError("Invalid asset fingerprint. Cannot transfer this asset.");
             return;
         }
 
         setTransferLoading(true);
         try {
-            const tx = await transferAsset(publicKey, receiver, targetIssuer);
+            const tx = await transferAsset(publicKey, receiver, targetAssetHash);
             setTransferTx(tx);
-            // Reload data
             setTimeout(() => loadData(), 5000);
         } catch (e: any) {
             console.error(e);
@@ -83,17 +78,15 @@ export default function AssetPage() {
             <main className="max-w-4xl mx-auto py-16 px-6 text-center">
                 <h1 className="text-2xl font-bold text-neutral-900 mb-2">Asset Not Found</h1>
                 <p className="text-neutral-500">
-                    No active trustline found for this Asset ID.
+                    No registered on-chain owner was found for this asset.
                 </p>
                 <p className="text-xs text-gray-400 mt-2">ID: {assetId}</p>
             </main>
         );
     }
 
-    // Debugging Ownership
     console.log("Ownership Check:", { publicKey, liveOwner });
 
-    // Case-insensitive comparison
     const isOwner = publicKey && liveOwner && (publicKey.toLowerCase() === liveOwner.toLowerCase());
 
     return (
@@ -119,7 +112,7 @@ export default function AssetPage() {
                     )}
 
                     <div className="space-y-1">
-                        <p className="text-xs text-gray-500 uppercase font-bold">Issuer ID</p>
+                        <p className="text-xs text-gray-500 uppercase font-bold">Registry Contract</p>
                         <div className="flex items-center gap-2">
                             <p className="font-mono text-xs text-neutral-600 break-all">{data?.live?.issuer || assetId}</p>
                             <CopyButton text={data?.live?.issuer || assetId} />
@@ -200,7 +193,7 @@ export default function AssetPage() {
                                 </div>
                             </div>
                             <p className="text-[10px] text-gray-400">
-                                Note: Limits range of 0.0000001 XLM will be reserved for the claimable balance.
+                                Ownership is transferred by the Soroban registry contract and then synced back into the registry index.
                             </p>
 
                             {error && (

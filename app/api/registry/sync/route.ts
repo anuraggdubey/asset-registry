@@ -5,15 +5,31 @@ import { getOnChainOwner } from "@/lib/stellar/ownership";
 
 export async function POST(req: NextRequest) {
     try {
-        const { registeredAssetId, txHash } = await req.json();
+        const { registeredAssetId, metadataHash, txHash } = await req.json();
 
-        if (!registeredAssetId) {
-            return NextResponse.json({ error: "Missing Asset ID" }, { status: 400 });
+        if (!registeredAssetId && !metadataHash) {
+            return NextResponse.json({ error: "Missing Asset ID or hash" }, { status: 400 });
         }
 
-        // 1. Get Asset Record
-        const assetRef = adminDb.collection("assets").doc(registeredAssetId);
-        const assetSnap = await assetRef.get();
+        let assetRef;
+        let assetSnap;
+
+        if (registeredAssetId) {
+            assetRef = adminDb.collection("assets").doc(registeredAssetId);
+            assetSnap = await assetRef.get();
+        } else {
+            const snapshot = await adminDb.collection("assets")
+                .where("metadataHash", "==", metadataHash)
+                .limit(1)
+                .get();
+
+            if (snapshot.empty) {
+                return NextResponse.json({ error: "Asset not found in registry" }, { status: 404 });
+            }
+
+            assetRef = snapshot.docs[0].ref;
+            assetSnap = snapshot.docs[0];
+        }
 
         if (!assetSnap.exists) {
             return NextResponse.json({ error: "Asset not found in registry" }, { status: 404 });
@@ -21,9 +37,7 @@ export async function POST(req: NextRequest) {
 
         const assetData = assetSnap.data()!;
 
-        // 2. Verify On-Chain (Strict)
-        // We use the stored Issuer/Code to check real ownership on Stellar
-        const realOwner = await getOnChainOwner(assetData.assetCode, assetData.issuerPublicKey);
+        const realOwner = await getOnChainOwner(assetData.metadataHash);
 
         if (!realOwner) {
             // Asset might be burned or trustline removed
@@ -39,10 +53,10 @@ export async function POST(req: NextRequest) {
 
         // 4. Log Verification
         await adminDb.collection("verification_logs").add({
-            registeredAssetId: registeredAssetId,
+            registeredAssetId: assetData.registeredAssetId || assetRef.id,
             verifiedOwner: realOwner,
             verifiedAt: Date.now(),
-            verificationSource: "live_chain",
+            verificationSource: "soroban_contract",
             triggerTx: txHash || "manual_sync"
         });
 

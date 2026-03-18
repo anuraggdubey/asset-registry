@@ -39,7 +39,7 @@ export default function VerifyPage() {
                     let history = stored ? JSON.parse(stored) : [];
 
                     // Add new item to top, remove duplicates by hash
-                    const newItem = { hash, owner: res.owner, timestamp: Date.now() };
+                    const newItem = { hash, owner: res.live.owner, timestamp: Date.now() };
                     history = [newItem, ...history.filter((h: any) => h.hash !== hash)].slice(0, 10); // Keep last 10
 
                     localStorage.setItem("stellar_verified_assets", JSON.stringify(history));
@@ -106,25 +106,25 @@ export default function VerifyPage() {
                             <div className="p-4 bg-gray-50 rounded-md">
                                 <div className="flex justify-between items-center mb-1">
                                     <p className="text-xs text-neutral-500 uppercase font-semibold">Current Owner</p>
-                                    <CopyButton text={result.owner} />
+                                    <CopyButton text={result.live.owner || "None"} />
                                 </div>
-                                <p className="font-mono text-sm break-all text-neutral-900">{result.owner}</p>
+                                <p className="font-mono text-sm break-all text-neutral-900">{result.live.owner || "None"}</p>
                             </div>
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div className="p-4 bg-gray-50 rounded-md">
                                     <div className="flex justify-between items-center mb-1">
-                                        <p className="text-xs text-neutral-500 uppercase font-semibold">Last Transaction</p>
-                                        <CopyButton text={result.txHash} />
+                                        <p className="text-xs text-neutral-500 uppercase font-semibold">Registry Contract</p>
+                                        <CopyButton text={result.live.issuer} />
                                     </div>
-                                    <p className="font-mono text-xs break-all text-neutral-700">{result.txHash}</p>
+                                    <p className="font-mono text-xs break-all text-neutral-700">{result.live.issuer}</p>
                                 </div>
                                 <div className="p-4 bg-gray-50 rounded-md">
                                     <p className="text-xs text-neutral-500 uppercase font-semibold mb-1">Status</p>
                                     <div className="flex items-center gap-2">
-                                        <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
-                                        <span className="text-sm text-neutral-700">Active</span>
-                                        {result.cached && (
+                                        <div className={`w-2 h-2 rounded-full ${result.live.isVerified ? "bg-emerald-500" : "bg-amber-500"}`}></div>
+                                        <span className="text-sm text-neutral-700">{result.live.isVerified ? "Verified" : "Unsynced"}</span>
+                                        {result.registry && (
                                             <span className="text-xs text-gray-400 ml-auto">(Cached)</span>
                                         )}
                                     </div>

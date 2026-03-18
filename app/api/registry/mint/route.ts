@@ -6,7 +6,7 @@ export async function POST(req: NextRequest) {
     try {
         const { assetCode, issuerPublicKey, metadataHash, owner } = await req.json();
 
-        if (!issuerPublicKey || !owner) {
+        if (!metadataHash || !owner) {
             return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
         }
 
@@ -17,12 +17,12 @@ export async function POST(req: NextRequest) {
         await adminDb.collection("assets").doc(registryId).set({
             registeredAssetId: registryId,
             assetCode: assetCode || "ART",
-            issuerPublicKey: issuerPublicKey,
-            metadataHash: metadataHash || "",
+            issuerPublicKey: issuerPublicKey || "",
+            metadataHash: metadataHash,
             currentKnownOwner: owner,
             createdAt: Date.now(),
             lastVerifiedLedger: 0,
-            status: "active"
+            status: "pending"
         });
 
         // 3. Create User Profile if not exists

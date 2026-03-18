@@ -1,3 +1,5 @@
+"use client";
+
 import { create } from "zustand";
 import {
     StellarWalletsKit,
@@ -5,14 +7,29 @@ import {
     allowAllModules
 } from "@creit.tech/stellar-wallets-kit";
 
-// Initialize Kit (lax lazy init to avoid SSR window error)
-export const kit = typeof window !== "undefined"
-    ? new StellarWalletsKit({
-        network: WalletNetwork.TESTNET,
-        selectedWalletId: "freighter",
-        modules: allowAllModules(),
-    })
-    : null as unknown as StellarWalletsKit;
+declare global {
+    interface Window {
+        __stellarWalletKit?: StellarWalletsKit;
+    }
+}
+
+function getWalletKit() {
+    if (typeof window === "undefined") {
+        return null as unknown as StellarWalletsKit;
+    }
+
+    if (!window.__stellarWalletKit) {
+        window.__stellarWalletKit = new StellarWalletsKit({
+            network: WalletNetwork.TESTNET,
+            selectedWalletId: "freighter",
+            modules: allowAllModules(),
+        });
+    }
+
+    return window.__stellarWalletKit;
+}
+
+export const kit = getWalletKit();
 
 type WalletState = {
     publicKey: string | null;

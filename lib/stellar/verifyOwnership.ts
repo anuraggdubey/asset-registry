@@ -1,6 +1,6 @@
 import { getOnChainOwner } from "./ownership";
 import axios from "axios";
-import { StrKey } from "@stellar/stellar-sdk";
+import { getRegistryContractId } from "./registryContract";
 
 export interface OwnershipVerificationResult {
     registry: {
@@ -24,58 +24,41 @@ export interface OwnershipVerificationResult {
 export async function verifyOwnership(identifier: string): Promise<OwnershipVerificationResult> {
     try {
         let registryData = null;
-        let issuerPublicKey = "";
-        let assetCode = "ART"; // Default
+        let assetHash = "";
 
-        // Detect Identifier Type
         const isRegistryId = /^\d{6}$/.test(identifier);
-        const isStellarKey = StrKey.isValidEd25519PublicKey(identifier);
-        // Assume anything else might be a Hash if it's not a key and not an ID
-        const isHash = !isRegistryId && !isStellarKey;
+        const isHash = !isRegistryId;
 
         if (isRegistryId) {
-            // 1. Fetch by ID
             try {
                 const res = await axios.get(`/api/registry/asset?id=${identifier}`);
                 registryData = res.data;
-                issuerPublicKey = registryData.issuerPublicKey;
-                assetCode = registryData.assetCode;
+                assetHash = registryData.metadataHash;
             } catch (e) {
                 console.warn("Registry Lookup Failed (ID)", e);
             }
         } else if (isHash) {
-            // 1. Fetch by Hash
+            assetHash = identifier;
             try {
                 const res = await axios.get(`/api/registry/asset?hash=${identifier}`);
                 registryData = res.data;
-                issuerPublicKey = registryData.issuerPublicKey;
-                assetCode = registryData.assetCode;
             } catch (e) {
                 console.warn("Registry Lookup Failed (Hash)", e);
             }
         }
 
-        if (!isRegistryId && !isHash && isStellarKey) {
-            // Identifier IS the issuer
-            issuerPublicKey = identifier;
-        }
-
-        // If we still don't have an issuer (e.g. Hash lookup failed), we can't verify on-chain.
-        if (!issuerPublicKey || !StrKey.isValidEd25519PublicKey(issuerPublicKey)) {
+        if (!assetHash) {
             return {
                 registry: null,
                 live: { owner: null, issuer: "", isVerified: false },
-                error: "Could not resolve valid Asset Issuer from identifiers."
+                error: "Could not resolve a valid asset fingerprint from the provided identifier."
             };
         }
 
-        // 2. Fetch Real On-Chain Owner (Source of Truth)
-        const onChainOwner = await getOnChainOwner(assetCode, issuerPublicKey);
+        const onChainOwner = await getOnChainOwner(assetHash);
 
-        // 3. Determine Verification Status
         const isVerified = registryData ? (onChainOwner === registryData.currentKnownOwner) : false;
 
-        // 4. Return Hybrid Data
         return {
             registry: registryData ? {
                 id: registryData.registeredAssetId,
@@ -89,10 +72,8 @@ export async function verifyOwnership(identifier: string): Promise<OwnershipVeri
             } : null,
             live: {
                 owner: onChainOwner,
-                issuer: issuerPublicKey,
+                issuer: getRegistryContractId(),
                 isVerified: isVerified,
-                // We could infer type here, but getOnChainOwner abstracts it.
-                // For now, let's just trust the owner string.
             }
         };
 
