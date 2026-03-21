@@ -25,6 +25,10 @@ This project is built for digital certificates, creative work, contracts, collec
 
 The browser computes a SHA-256 fingerprint locally, the Soroban contract stores the ownership state on-chain, and Firebase indexes metadata for fast lookup by registry ID or hash.
 
+## Live Link
+
+[Live Link](https://register-asset.vercel.app)
+
 ## Demo
 
 [Watch Demo Video](https://drive.google.com/file/d/1AY2dYAcFIYuClupk-apw7B1k2p26Pm_8/view?usp=sharing)
